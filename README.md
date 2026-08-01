@@ -66,7 +66,6 @@ You need to independently download the ShipD ship hull dataset and place the mes
 Please check the official dataset access channel to obtain raw hull mesh data.
 
 ## Repository Structure
-```
 LieHullDynamics/
 │
 ├── code/
@@ -93,8 +92,6 @@ LieHullDynamics/
 │
 ├── README.md
 └── requirements.txt
-```
-
 ## Experiments Description
 All experimental outputs will be automatically saved into `exp_tables/` after running the main script.
 

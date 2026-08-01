@@ -19,23 +19,30 @@ However, hull deformation naturally presents nonlinear manifold variations, sequ
 
 This work constructs a geometry-conscious representation based on Lie latent dynamics. We model continuous hull shape evolution as smooth transformations within a compact low-dimensional latent space.
 
-Full computation pipeline:
-```
-Raw Hull Mesh
-    ↓
-Point Cloud Sampling
-    ↓
-Shape PCA Latent Embedding
-    ↓
-Lie Log Deformation Representation
-    ↓
-Koopman Dynamic Modeling
-    ├───────────────┬───────────────┐
-    ↓                               ↓
-Shape Retrieval             Multi-step Evolution Prediction
-    ↓
-Compression Evaluation / Ablation Study / Computational Complexity Analysis
-```
+                Input
+                  |
+                  v
+          Raw Hull Mesh Dataset
+                  |
+                  v
+          Point Cloud Sampling
+                  |
+                  v
+        Geometric Feature Extraction
+                  |
+                  v
+          PCA Latent Representation
+                  |
+                  v
+       Lie-Geometric Deformation Encoding
+                  |
+                  v
+          Koopman Dynamic Modeling
+                  |
+        +---------+----------+
+        |                    |
+        v                    v
+ Shape Retrieval     Evolution Prediction
 
 ## Main Components
 ### 1. Hull Shape Representation

@@ -320,8 +320,4 @@ This repository contains the implementation and experimental analysis developed 
 
 The ShipD ship hull dataset is not redistributed and must be obtained from its original source.
 
-```
-
-
-另外，如果你已经决定把当前论文改成 **SWPCA-CUS 船舶参数压缩论文**，建议不要把这个 README 和那个论文绑定，而是保持 `LieHullDynamics` 作为独立仓库，这样两个工作不会互相削弱。
-```
+Have a nice day.

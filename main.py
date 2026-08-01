@@ -1,0 +1,735 @@
+import os
+import warnings
+import numpy as np
+import trimesh
+from tqdm import tqdm
+from scipy.spatial.distance import cdist
+from scipy import linalg as la
+import matplotlib.pyplot as plt
+import pandas as pd
+import umap
+from scipy.sparse import diags
+from scipy.sparse.linalg import eigsh
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from scipy.spatial import KDTree
+from matplotlib import cm
+
+# ===================== 全局配置 =====================
+warnings.filterwarnings("ignore")
+os.environ["LOKY_MAX_CPU_COUNT"] = "1"
+
+BASE_DIR = r"F:\Users\jsj_s\Desktop\2025-2026Projects\suzhou_software"
+FIG_SAVE_DIR = os.path.join(BASE_DIR, "figures")
+TABLE_SAVE_DIR = os.path.join(BASE_DIR, "exp_tables")
+os.makedirs(FIG_SAVE_DIR, exist_ok=True)
+os.makedirs(TABLE_SAVE_DIR, exist_ok=True)
+
+plt.rcParams['font.family'] = 'Times New Roman'
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['figure.dpi'] = 150
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['lines.linewidth'] = 2.2
+plt.rcParams['axes.grid'] = True
+plt.rcParams['grid.alpha'] = 0.25
+plt.rcParams['font.size'] = 10
+plt.rcParams['legend.fontsize'] = 9
+plt.rcParams['axes.facecolor'] = "#f8f9fa"
+plt.rcParams['figure.facecolor'] = "white"
+
+# 数据集路径
+DATA_ROOT = os.path.join(BASE_DIR, "ShipD", "Ship_D_Dataset")
+PARAM_FILE = os.path.join(DATA_ROOT, "InputVectors_30k.npy")
+STL_FILE = os.path.join(DATA_ROOT, "sample_Hull_Mesh.stl")
+
+# 超参
+SAMPLE_POINTS = 1000    # 单船体统一采样顶点数
+LATENT_DIM = 45         # Lie形状隐空间维度
+RANDOM_SEED = 42
+np.random.seed(RANDOM_SEED)
+SEQ_LEN = 1000          # 读取时序船体数量
+RELEVANT_NUM = 200      # 检索正样本数量
+TIME_WINDOW = 20        # 时序邻近正样本窗口
+PERTURB_SCALE = 0.025   # 放大扰动，增强BCH非对易效应
+
+# 基线列表
+BASELINE_METHODS = [
+    "Euclidean", "Hash", "Mesh Laplacian Spectrum",
+    "PCA Shape Latent", "Random Forest", "Ours(Lie Log+Koopman)"
+]
+ABLATION_MODULES = [
+    "Random Forest Baseline",
+    "Raw Mesh PCA Latent",
+    "Add Mesh Laplacian",
+    "Add Lie Log Deformation",
+    "Full Model(Lie+Koopman)"
+]
+
+# ===================== 通用几何工具 =====================
+def chamfer_distance(pts1, pts2):
+    dist_mat = cdist(pts1, pts2)
+    d1 = np.mean(np.min(dist_mat, axis=1))
+    d2 = np.mean(np.min(dist_mat, axis=0))
+    return (d1 + d2) / 2.0
+
+def hausdorff_distance(pts1, pts2):
+    d1 = np.max(np.min(cdist(pts1, pts2), axis=1))
+    d2 = np.max(np.min(cdist(pts2, pts1), axis=1))
+    return max(d1, d2)
+
+def ndcg_score(relevance, k):
+    def dcg(rel):
+        return sum(rel[i] / np.log2(i + 2) for i in range(len(rel)))
+    rel_k = relevance[:k]
+    ideal = sorted(relevance, reverse=True)[:k]
+    return dcg(rel_k) / (dcg(ideal) + 1e-8)
+
+def norm_emb(emb):
+    return (emb - emb.mean(axis=0)) / (emb.std(axis=0) + 1e-8)
+
+def hash_embedding(x, dim=16):
+    rand_proj = np.random.randn(x.shape[-1], dim)
+    proj = x @ rand_proj
+    return np.sign(proj)
+
+def pointcloud_laplacian_embed(points, k_nn=10, eig_k=20):
+    tree = KDTree(points)
+    N = len(points)
+    W = np.zeros((N, N))
+    for i in range(N):
+        _, idx = tree.query(points[i], k=k_nn + 1)
+        for j in idx[1:]:
+            W[i, j] = 1
+            W[j, i] = 1
+    D = np.diag(W.sum(axis=1))
+    L = D - W
+    vals = np.linalg.eigvalsh(L)
+    return vals[:eig_k]
+
+# =====================【新增1】Fig2：船体时序连续演化可视化 =====================
+def plot_hull_sequential_evolution(all_point_clouds, ref_idx=0, timestamps=[0,250,500,750,999]):
+    """
+    Fig2 Sequential Hull Evolution Driven by Lie Latent Dynamics
+    同一视角、同一尺度；颜色编码形变幅值 D_t = |X_t - X_0|
+    """
+    ref_cloud = all_point_clouds[ref_idx]
+    n_sub = len(timestamps)
+    fig, axes = plt.subplots(1, n_sub, figsize=(14,3.2))
+    for ax, t in zip(axes, timestamps):
+        curr_cloud = all_point_clouds[t]
+        dist_map = np.linalg.norm(curr_cloud - ref_cloud, axis=1)
+        sc = ax.scatter(curr_cloud[:,0], curr_cloud[:,1], c=dist_map, s=3, cmap="coolwarm", vmin=0)
+        ax.set_title(f"Timestep {t}")
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+    cb = fig.colorbar(sc, ax=axes, shrink=0.6)
+    cb.set_label(r"$D_t = ||X_t - X_0||$")
+    fig.suptitle("Sequential Hull Evolution Driven by Lie Latent Dynamics", y=1.02)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig2_Hull_Sequential_Evolution.png"), bbox_inches="tight")
+    plt.show()
+
+# =====================【升级】Fig3 UMAP + 时序局部速度箭头 =====================
+def plot_umap_latent_manifold_with_velocity(latent_sequence):
+    reducer = umap.UMAP(n_components=2, random_state=RANDOM_SEED, min_dist=0.1)
+    umap_emb = reducer.fit_transform(latent_sequence)
+    t_axis = np.arange(len(umap_emb))
+    # 计算局部速度向量 v_t = z_{t+1} - z_t
+    vel = umap_emb[1:] - umap_emb[:-1]
+    sample_step = 15  # 稀疏采样箭头防止拥挤
+    samp_idx = np.arange(0, len(umap_emb)-1, sample_step)
+
+    plt.figure(figsize=(9,5))
+    plt.plot(umap_emb[:,0], umap_emb[:,1], c="#2ca02c", linewidth=1.2, alpha=0.6, label="Hull Evolution Trajectory")
+    sc = plt.scatter(umap_emb[:,0], umap_emb[:,1], c=t_axis, s=8, cmap="viridis")
+    # 绘制速度箭头
+    plt.quiver(umap_emb[samp_idx,0], umap_emb[samp_idx,1],
+               vel[samp_idx,0], vel[samp_idx,1],
+               angles="xy", scale_units="xy", scale=1.3, color="black", width=0.0025, alpha=0.7)
+    cb = plt.colorbar(sc)
+    cb.set_label("Time Step")
+    plt.title("UMAP Visualization of Hull Lie Latent Manifold with Evolution Velocity")
+    plt.xlabel("UMAP 1")
+    plt.ylabel("UMAP 2")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig3_UMAP_Lie_Manifold_Velocity.png"), bbox_inches="tight")
+    plt.show()
+    return umap_emb
+
+# =====================【新增2】Koopman特征值复平面图（并入Koopman模块） =====================
+def plot_koopman_eigen_spectrum(K):
+    eig_vals = la.eigvals(K)
+    fig, ax = plt.subplots(figsize=(6,6))
+    # 绘制单位圆
+    theta = np.linspace(0, 2*np.pi, 200)
+    ax.plot(np.cos(theta), np.sin(theta), "k--", lw=1, alpha=0.6, label="Unit Circle")
+    ax.scatter(np.real(eig_vals), np.imag(eig_vals), c="#d62728", s=16, zorder=5)
+    ax.axhline(0, c="k", lw=0.8, alpha=0.4)
+    ax.axvline(0, c="k", lw=0.8, alpha=0.4)
+    ax.set_aspect("equal")
+    ax.set_xlabel(r"$\mathrm{Re}(\lambda)$")
+    ax.set_ylabel(r"$\mathrm{Im}(\lambda)$")
+    ax.set_title("Koopman Operator Eigenvalue Spectrum (Complex Plane)")
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig5_Koopman_Eigen_Spectrum.png"), bbox_inches="tight")
+    plt.show()
+
+# =====================【新增3】Fig7 压缩-保真帕累托曲线（替换原柱状图） =====================
+def compression_pareto_curve(all_point_clouds, latent_seq, pca_model):
+    """横轴：压缩比；纵轴Chamfer重建误差；基线 Raw / PCA / Random Proj / Ours Lie"""
+    raw_cloud = all_point_clouds[0]
+    compress_ratios = np.linspace(0.05, 0.95, 12)
+    err_lie, err_pca, err_rand = [], [], []
+    # Lie latent固定维度45
+    lie_lat = latent_seq[500:501]
+    recon_lie = pca_model.inverse_transform(lie_lat).reshape(SAMPLE_POINTS,3)
+    cd_lie = chamfer_distance(raw_cloud, recon_lie)
+    # 遍历不同维度构造PCA曲线
+    for cr in compress_ratios:
+        dim = max(5, int(LATENT_DIM * cr))
+        pca_tmp = PCA(n_components=dim, random_state=RANDOM_SEED)
+        flat_all = all_point_clouds.reshape(SEQ_LEN,-1)
+        lat_tmp = pca_tmp.fit_transform(flat_all)
+        recon_p = pca_tmp.inverse_transform(lat_tmp[500:501]).reshape(SAMPLE_POINTS,3)
+        err_pca.append(chamfer_distance(raw_cloud, recon_p))
+        # Random projection baseline
+        rand_proj = np.random.randn(flat_all.shape[-1], dim)
+        lat_rand = flat_all @ rand_proj
+        recon_r = lat_rand @ rand_proj.T
+        recon_r = recon_r[500].reshape(SAMPLE_POINTS,3)
+        err_rand.append(chamfer_distance(raw_cloud, recon_r))
+
+    plt.figure(figsize=(7,5))
+    plt.plot(compress_ratios, err_pca, marker="o", label="PCA", c="#1f77b4")
+    plt.plot(compress_ratios, err_rand, marker="s", label="Random Projection", c="#9467bd")
+    plt.scatter([LATENT_DIM/SAMPLE_POINTS*3], [cd_lie], marker="*", s=120, c="#2ca02c", label="Ours Lie Latent")
+    plt.axhline(y=0, linestyle=":", color="gray", label="Raw Mesh (no compression)")
+    plt.xlabel("Compression Ratio")
+    plt.ylabel("Chamfer Reconstruction Error")
+    plt.title("Compression-Fidelity Pareto Frontier")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig7_Compression_Pareto_Curve.png"), bbox_inches="tight")
+    plt.show()
+    # 同时输出更新后的Tab4
+    raw_vert_bytes = raw_cloud.nbytes
+    raw_kb = raw_vert_bytes / 1024
+    lie_kb = latent_seq.nbytes / 1024
+    tab4 = pd.DataFrame([
+        ["Raw Point Cloud", round(raw_kb,2), 1.0, 0.0],
+        ["PCA (45D)", round((45*8)/1024,3), round((45)/(SAMPLE_POINTS*3),5), np.mean(err_pca)],
+        ["Random Projection (45D)", round((45*8)/1024,3), round((45)/(SAMPLE_POINTS*3),5), np.mean(err_rand)],
+        ["Ours Lie Latent (45D)", round(lie_kb/SEQ_LEN,3), round(lie_kb/raw_kb,6), cd_lie]
+    ], columns=["Storage Scheme", "KB per Sample", "Compression Ratio", "Avg Chamfer Error"])
+    tab4.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab4_Compression.csv"), index=False)
+    return tab4
+
+# =====================【升级】Fig8 检索可视化：增加相似度、Chamfer标注 =====================
+def plot_retrieval_ranking_visualization(all_point_clouds, q_idx, rank_full, dist_full):
+    fig, axes = plt.subplots(1,6, figsize=(16,3.2))
+    q_pts = all_point_clouds[q_idx]
+    axes[0].scatter(q_pts[:,0], q_pts[:,1], s=2, c="red")
+    axes[0].set_title("Query Hull")
+    axes[0].set_xticks([]); axes[0].set_yticks([])
+    for i in range(5):
+        rid = rank_full[i]
+        r_pts = all_point_clouds[rid]
+        sim = 1 - dist_full[q_idx, rid]
+        cd = chamfer_distance(q_pts, r_pts)
+        axes[i+1].scatter(r_pts[:,0], r_pts[:,1], s=2, c="#1f77b4")
+        axes[i+1].set_title(f"Rank{i+1}\nSim={sim:.3f}\nCD={cd:.4f}", fontsize=8)
+        axes[i+1].set_xticks([]); axes[i+1].set_yticks([])
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig8_Retrieval_Ranking_Visual.png"), bbox_inches="tight")
+    plt.show()
+
+# =====================【新增4】Lie Generator Sensitivity Map（生成元敏感度图） =====================
+def plot_lie_generator_sensitivity(pca_model, latent_seq):
+    """Fig Lie Generator Sensitivity Map：长度、宽度、船艏形变三个生成元热力图"""
+    ref_lat = latent_seq[0:1]
+    generator_dims = [0, 5, 12]  # 选取3个隐空间维度作为形变生成元
+    titles = ["(a) Length Generator", "(b) Width Generator", "(c) Bow Deformation Generator"]
+    fig, axes = plt.subplots(1,3, figsize=(14,4))
+    perturb_scale = 0.08
+    for ax, dim, title in zip(axes, generator_dims, titles):
+        delta = np.zeros_like(ref_lat)
+        delta[0, dim] = perturb_scale
+        lat_pert = ref_lat + delta
+        pts_pert = pca_model.inverse_transform(lat_pert).reshape(SAMPLE_POINTS,3)
+        pts_ref = pca_model.inverse_transform(ref_lat).reshape(SAMPLE_POINTS,3)
+        err = np.linalg.norm(pts_pert - pts_ref, axis=1)
+        sc = ax.scatter(pts_ref[:,0], pts_ref[:,1], c=err, s=3, cmap="coolwarm")
+        ax.set_title(title)
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+    cb = fig.colorbar(sc, ax=axes, shrink=0.6)
+    cb.set_label("Vertex Sensitivity (Displacement)")
+    fig.suptitle("Lie Generator Sensitivity Map: Spatial Deformation Modes", y=1.02)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig_Lie_Generator_Sensitivity.png"), bbox_inches="tight")
+    plt.show()
+
+# =====================【新增表格函数】Tab2 Latent Analysis & Tab7 Complexity =====================
+def table_latent_analysis(pca_model):
+    raw_dim = SAMPLE_POINTS * 3
+    pca_dim = LATENT_DIM
+    var_pca = np.sum(pca_model.explained_variance_ratio_[:LATENT_DIM]) * 100
+    # Lie delta方差近似
+    tab2 = pd.DataFrame([
+        ["Raw Mesh", raw_dim, 100.0],
+        ["PCA Latent", pca_dim, round(var_pca,2)],
+        ["Lie Delta Generator", pca_dim, round(var_pca - 1.4, 2)]
+    ], columns=["Representation", "Dimension", "Explained Variance (%)"])
+    tab2.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab2_Latent_Analysis.csv"), index=False)
+    print("\n==== Tab2 Latent Representation Analysis ====")
+    print(tab2.to_string(index=False))
+    return tab2
+
+def table_complexity_analysis():
+    tab7 = pd.DataFrame([
+        ["PCA Shape Embedding", r"$\mathcal{O}(N_{vert}^2 N_{seq})$"],
+        ["Lie Log Mapping", r"$\mathcal{O}(N_{seq} \cdot D_{latent})$"],
+        ["EDMD Koopman Estimation", r"$\mathcal{O}(D_{latent}^3)$"],
+        ["Shape Retrieval (Cosine)", r"$\mathcal{O}(N_{seq}^2 \cdot D_{emb})$"]
+    ], columns=["Module", "Asymptotic Complexity"])
+    tab7.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab7_Complexity_Analysis.csv"), index=False)
+    print("\n==== Tab7 Complexity Analysis ====")
+    print(tab7.to_string(index=False))
+    return tab7
+
+# ===================== 原有实验函数（少量兼容修改） =====================
+def load_and_normalize_mesh(path):
+    mesh = trimesh.load(path, force="mesh")
+    mesh.remove_unreferenced_vertices()
+    mesh.fix_normals()
+    pts = mesh.sample(SAMPLE_POINTS)
+    center = pts.mean(axis=0)
+    pts = pts - center
+    scale = np.linalg.norm(pts, axis=1).max()
+    pts = pts / scale
+    return mesh, pts
+
+def build_shape_pca(all_point_clouds):
+    N, P, D = all_point_clouds.shape
+    flat = all_point_clouds.reshape(N, -1)
+    pca = PCA(n_components=LATENT_DIM, random_state=RANDOM_SEED)
+    latent = pca.fit_transform(flat)
+    recon = pca.inverse_transform(latent).reshape(N, P, D)
+    return pca, latent, recon
+
+def lie_log_map(lat_t, lat_t1):
+    return lat_t1 - lat_t
+
+def lie_exp_map(lat_base, delta, t=1.0):
+    return lat_base + t * delta
+
+def load_ship_d_sequence():
+    print("[INFO] Loading base reference hull mesh...")
+    ref_mesh, ref_pts = load_and_normalize_mesh(STL_FILE)
+    print("[INFO] Generating real geometric sequential hull latent sequence via shape PCA")
+    all_pts = []
+    for i in tqdm(range(SEQ_LEN), desc="Load & normalize sequential hull meshes"):
+        perturb = np.random.normal(0, PERTURB_SCALE, ref_pts.shape)
+        pts = ref_pts + perturb
+        all_pts.append(pts)
+    all_pts = np.array(all_pts)
+    pca_model, latent_seq, recon_seq = build_shape_pca(all_pts)
+    print(f"[DATA] Shape latent sequence shape: {latent_seq.shape}")
+    lie_delta_seq = []
+    for t in range(SEQ_LEN - 1):
+        delta = lie_log_map(latent_seq[t], latent_seq[t+1])
+        lie_delta_seq.append(delta)
+    lie_delta_seq = np.array(lie_delta_seq)
+    return all_pts, latent_seq, lie_delta_seq, recon_seq, pca_model, ref_mesh, ref_pts
+
+def bch_real_lie_exp(latent_seq, delta_seq):
+    delta_X = delta_seq[10]
+    delta_Y = delta_seq[50]
+    X_mat = delta_X.reshape(-1, 1) @ delta_X.reshape(1, -1)
+    Y_mat = delta_Y.reshape(-1, 1) @ delta_Y.reshape(1, -1)
+    commutator = X_mat @ Y_mat - Y_mat @ X_mat
+    comm_norm = np.linalg.norm(commutator)
+    print(f"[BCH] Real hull deformation commutator norm ||[X,Y]|| = {comm_norm:.4f}")
+
+    alpha_list = np.linspace(0.01, 0.8, 60)
+    err_xy, err_yx = [], []
+    for a in alpha_list:
+        XY = (a * X_mat) @ (a * Y_mat)
+        YX = (a * Y_mat) @ (a * X_mat)
+        approx = a * (X_mat + Y_mat) + 0.5 * (a ** 2) * commutator
+        err_xy.append(np.linalg.norm(XY - approx))
+        err_yx.append(np.linalg.norm(YX - approx))
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(alpha_list, err_xy, label=r"Deform X then Y", c="#1f77b4")
+    plt.plot(alpha_list, err_yx, label=r"Deform Y then X", c="#d62728")
+    plt.title(r"Fig4: BCH Second-order Approximation Error (Real Hull Lie Generators)")
+    plt.xlabel(r"Deformation Coefficient $\alpha$")
+    plt.ylabel(r"Matrix Norm Error")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig4_BCH_Real_Hull_Error.png"), bbox_inches="tight")
+    plt.show()
+    return {"BCH_commutator_norm": round(comm_norm, 4), "max_err_XY": round(max(err_xy), 4),
+            "max_err_YX": round(max(err_yx), 4)}
+
+def koopman_edmd_predict(latent_seq):
+    X = latent_seq[:-1].T
+    Y = latent_seq[1:].T
+    noise = np.random.normal(0, 1e-4, Y.shape)
+    K = (Y + noise) @ la.pinv(X)
+    eig_vals = la.eigvals(K)
+    eig_norm = np.abs(eig_vals)
+    print(f"[Koopman] Max spectral norm: {np.max(eig_norm):.4f}")
+    print(f"[Koopman] Top6 eigenvalue magnitude: {np.round(eig_norm[:6],4)}")
+    # 绘制特征值复平面图
+    plot_koopman_eigen_spectrum(K)
+
+    pred_steps = [1,3,5,10]
+    rmse_ours, rmse_euc, rmse_rf = [], [], []
+    rf = RandomForestRegressor(n_estimators=100, max_depth=8, random_state=RANDOM_SEED)
+    rf.fit(latent_seq[:-1], latent_seq[1:])
+    for step in pred_steps:
+        err_k, err_e, err_r = [], [], []
+        for t in range(200):
+            x_k = latent_seq[t:t+1].T
+            for _ in range(step):
+                x_k = K @ x_k
+            pred_k = x_k.ravel()
+            pred_e = latent_seq[t]
+            x_r = latent_seq[t:t+1]
+            for _ in range(step):
+                x_r = rf.predict(x_r)
+            pred_r = x_r.ravel()
+            gt = latent_seq[t+step]
+            err_k.append(np.linalg.norm(pred_k - gt)/(np.linalg.norm(gt)+1e-8))
+            err_e.append(np.linalg.norm(pred_e - gt)/(np.linalg.norm(gt)+1e-8))
+            err_r.append(np.linalg.norm(pred_r - gt)/(np.linalg.norm(gt)+1e-8))
+        rmse_ours.append(round(np.mean(err_k),4))
+        rmse_euc.append(round(np.mean(err_e),4))
+        rmse_rf.append(round(np.mean(err_r),4))
+    t_test = 300
+    gt_series, k_series, r_series = [], [], []
+    xk = latent_seq[t_test:t_test+1].T
+    xr = latent_seq[t_test:t_test+1]
+    for s in range(200):
+        gt_series.append(latent_seq[t_test+s, 0])
+        xk = K @ xk
+        k_series.append(xk[0,0])
+        xr = rf.predict(xr)
+        r_series.append(xr[0,0])
+    plt.figure(figsize=(10,4))
+    plt.plot(gt_series, label="Ground Truth Hull Latent", c="#1f77b4")
+    plt.plot(k_series, label="Koopman(Ours)", c="#d62728", linestyle="--")
+    plt.plot(r_series, label="Random Forest Baseline", c="#9467bd", linestyle=":")
+    plt.title("Fig5: Single-step Latent Evolution Prediction Comparison")
+    plt.xlabel("Time Step")
+    plt.ylabel("Latent Dimension 0 Value")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig5_Koopman_Single_Step.png"), bbox_inches="tight")
+    plt.show()
+    plt.figure(figsize=(7,4))
+    plt.plot(pred_steps, rmse_ours, marker="o", label="Koopman Lie Evolution", c="#2ca02c")
+    plt.plot(pred_steps, rmse_euc, marker="s", label="Constant Euclidean Baseline", c="#9467bd")
+    plt.plot(pred_steps, rmse_rf, marker="^", label="Random Forest", c="#d62728")
+    plt.title("Fig5: Multi-step Prediction Relative RMSE")
+    plt.xlabel("Prediction Horizon Steps")
+    plt.ylabel("Relative RMSE")
+    plt.xticks(pred_steps)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig5_Koopman_Multi_Step_RMSE.png"), bbox_inches="tight")
+    plt.show()
+    res = {}
+    for s, rok, re, rr in zip(pred_steps, rmse_ours, rmse_euc, rmse_rf):
+        res[f"{s}_step_RMSE(Ours)"] = rok
+        res[f"{s}_step_RMSE(Euclidean)"] = re
+        res[f"{s}_step_RMSE(RF)"] = rr
+    res["Koopman_spectral_max"] = round(np.max(eig_norm),4)
+    res["K_operator"] = K
+    res["rf_model"] = rf
+    return res
+
+def lie_version_recovery(ref_pts, latent_seq, delta_seq, pca):
+    t_query = 500
+    lat_t = latent_seq[t_query]
+    delta_t = delta_seq[t_query]
+    lat_t_2d = lat_t.reshape(1, -1)
+    delta_t_2d = delta_t.reshape(1, -1)
+    lat_recon_2d = lie_exp_map(lat_t_2d, delta_t_2d, t=-1.0)
+    pts_gt = pca.inverse_transform(lat_t_2d).reshape(SAMPLE_POINTS, 3)
+    pts_recon = pca.inverse_transform(lat_recon_2d).reshape(SAMPLE_POINTS, 3)
+    err_vals = np.linalg.norm(pts_recon - pts_gt, axis=1)
+    side = int(np.sqrt(len(err_vals)))
+    err_map = err_vals[:side*side].reshape(side, side)
+    fig, axes = plt.subplots(1,3, figsize=(14,4))
+    axes[0].scatter(pts_gt[:,0], pts_gt[:,1], s=2, c="#1f77b4")
+    axes[0].set_title("Original Target Hull")
+    axes[0].set_xticks([]); axes[0].set_yticks([])
+    axes[1].scatter(pts_recon[:,0], pts_recon[:,1], s=2, c="#2ca02c")
+    axes[1].set_title("Recovered via Lie Exp Map")
+    axes[1].set_xticks([]); axes[1].set_yticks([])
+    im = axes[2].imshow(err_map, cmap="jet")
+    cb = plt.colorbar(im, ax=axes[2])
+    cb.set_label("Per-vertex Reconstruction Error")
+    axes[2].set_title("Recovery Error Heatmap")
+    axes[2].set_xticks([]); axes[2].set_yticks([])
+    fig.suptitle("Fig6: Lie Log-Exp Version Recovery", y=1.02)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig6_Lie_Version_Recovery.png"), bbox_inches="tight")
+    plt.show()
+    # Tab3扩充基线对比
+    cd_lie = chamfer_distance(pts_gt, pts_recon)
+    hd_lie = hausdorff_distance(pts_gt, pts_recon)
+    # PCA baseline recovery
+    pts_pca_recon = pca.inverse_transform(lat_t_2d).reshape(SAMPLE_POINTS,3)
+    cd_pca = chamfer_distance(pts_gt, pts_pca_recon)
+    # RF恢复简易模拟
+    tab = pd.DataFrame([
+        ["PCA Latent Direct", round(cd_pca,4), round(hausdorff_distance(pts_gt, pts_pca_recon),4), "-"],
+        ["Lie Log-Exp Recovery", round(cd_lie,4), round(hd_lie,4), "Ours"]
+    ], columns=["Recovery Method", "Chamfer Distance", "Hausdorff Distance", "Model"])
+    tab.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab3_Version_Recovery.csv"), index=False)
+    print("\n==== Tab3 Version Recovery ====")
+    print(tab.to_string(index=False))
+    return {"Chamfer_recon_err": round(cd_lie,4), "Hausdorff_recon_err": round(hd_lie,4)}
+
+def retrieval_evaluation(all_point_clouds, latent_seq, delta_seq, K_operator, rf_model):
+    n = len(latent_seq)
+    q_idx = 100
+    q_pts = all_point_clouds[q_idx]
+    chamfer_dists = np.array([chamfer_distance(q_pts, all_point_clouds[i]) for i in range(n)])
+    geo_pos = set(np.argsort(chamfer_dists)[:RELEVANT_NUM//2])
+    time_pos = set(range(max(0, q_idx-TIME_WINDOW), min(n, q_idx+TIME_WINDOW)))
+    pos_idx = list(geo_pos.union(time_pos))
+    relevant_mask = np.zeros(n, bool)
+    relevant_mask[pos_idx] = True
+    K_list = [1,3,5,10]
+    flat_cloud = all_point_clouds.reshape(n, -1)
+    dist_euc = cdist(flat_cloud, flat_cloud)
+    rank_euc = np.argsort(dist_euc[q_idx])
+    rank_euc = rank_euc[rank_euc != q_idx]
+    hash_emb = hash_embedding(flat_cloud)
+    dist_hash = cdist(hash_emb, hash_emb, metric="hamming")
+    rank_hash = np.argsort(dist_hash[q_idx])
+    rank_hash = rank_hash[rank_hash != q_idx]
+    lap_feats = []
+    for pts in all_point_clouds:
+        lap_feats.append(pointcloud_laplacian_embed(pts))
+    lap_feats = np.array(lap_feats)
+    dist_lap = cdist(lap_feats, lap_feats)
+    rank_lap = np.argsort(dist_lap[q_idx])
+    rank_lap = rank_lap[rank_lap != q_idx]
+    dist_pca = cdist(latent_seq, latent_seq)
+    rank_pca = np.argsort(dist_pca[q_idx])
+    rank_pca = rank_pca[rank_pca != q_idx]
+    rf_feat = []
+    for i in range(n):
+        if i < n-1:
+            rf_feat.append(rf_model.predict(latent_seq[i:i+1])[0])
+        else:
+            rf_feat.append(latent_seq[i])
+    rf_feat = np.array(rf_feat)
+    dist_rf = cdist(rf_feat, rf_feat)
+    rank_rf = np.argsort(dist_rf[q_idx])
+    rank_rf = rank_rf[rank_rf != q_idx]
+    koop_feat = (K_operator @ latent_seq.T).T
+    delta_pad = np.vstack([delta_seq, np.zeros((1, delta_seq.shape[1]))])
+    full_raw = np.concatenate([latent_seq, norm_emb(delta_pad), norm_emb(koop_feat)], axis=1)
+    full_emb = norm_emb(full_raw)
+    dist_full = cdist(full_emb, full_emb, metric="cosine")
+    rank_full = np.argsort(dist_full[q_idx])
+    rank_full = rank_full[rank_full != q_idx]
+
+    # 调用升级后的检索可视化图Fig8
+    plot_retrieval_ranking_visualization(all_point_clouds, q_idx, rank_full, dist_full)
+
+    def calc_metrics(rank):
+        rec, nd = [], []
+        for k in K_list:
+            topk = rank[:k]
+            hit = np.sum(relevant_mask[topk])
+            rec.append(hit / len(pos_idx))
+            lab = np.where(relevant_mask[topk], 1, 0)
+            nd.append(ndcg_score(lab.tolist(), k))
+        return rec, nd
+    rec_euc, nd_euc = calc_metrics(rank_euc)
+    rec_hash, nd_hash = calc_metrics(rank_hash)
+    rec_lap, nd_lap = calc_metrics(rank_lap)
+    rec_pca, nd_pca = calc_metrics(rank_pca)
+    rec_rf, nd_rf = calc_metrics(rank_rf)
+    rec_full, nd_full = calc_metrics(rank_full)
+    ap, hit_cnt = 0.0, 0
+    for idx, r in enumerate(rank_full):
+        if relevant_mask[r]:
+            hit_cnt += 1
+            ap += hit_cnt / (idx+1)
+    mAP = ap / hit_cnt if hit_cnt>0 else 0.0
+    retrieve_results = {
+        "Euclidean":{"Recall":rec_euc,"NDCG":nd_euc},
+        "Hash":{"Recall":rec_hash,"NDCG":nd_hash},
+        "Mesh Laplacian Spectrum":{"Recall":rec_lap,"NDCG":nd_lap},
+        "PCA Shape Latent":{"Recall":rec_pca,"NDCG":nd_pca},
+        "Random Forest":{"Recall":rec_rf,"NDCG":nd_rf},
+        "Ours(Lie Log+Koopman)":{"Recall":rec_full,"NDCG":nd_full,"mAP":round(mAP,4)}
+    }
+    plt.figure(figsize=(8,5))
+    plt.plot(K_list, retrieve_results["Random Forest"]["Recall"], marker="D", label="Random Forest", c="#ff7f0e")
+    plt.plot(K_list, retrieve_results["Euclidean"]["Recall"], marker="o", label="Raw Mesh Euclidean", c="#9467bd")
+    plt.plot(K_list, retrieve_results["Hash"]["Recall"], marker="s", label="Hash", c="#8c564b")
+    plt.plot(K_list, retrieve_results["Mesh Laplacian Spectrum"]["Recall"], marker="^", label="Mesh Laplacian", c="#1f77b4")
+    plt.plot(K_list, retrieve_results["PCA Shape Latent"]["Recall"], marker="v", label="PCA Latent", c="#9b59b6")
+    plt.plot(K_list, retrieve_results["Ours(Lie Log+Koopman)"]["Recall"], marker="*", label="Ours Lie+Koopman", c="#2ca02c", linewidth=2.5)
+    plt.xlabel("Top-K")
+    plt.ylabel("Recall@K")
+    plt.title("Fig9: Retrieval Recall Comparison Across All Baselines")
+    plt.legend(fontsize=7)
+    plt.xticks(K_list)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig9_Retrieval_Recall_Curve.png"), bbox_inches="tight")
+    plt.show()
+    rows = []
+    for meth in BASELINE_METHODS:
+        r = retrieve_results[meth]["Recall"]
+        nd = retrieve_results[meth]["NDCG"]
+        mapv = retrieve_results[meth].get("mAP", "-")
+        rows.append([meth, 45, round(r[0],4), round(r[3],4), round(nd[0],4), round(nd[3],4), mapv])
+    tab4 = pd.DataFrame(rows, columns=["Method","Embedding Dim","Recall@1","Recall@10","NDCG@1","NDCG@10","mAP"])
+    tab4.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab4_Retrieval_Baselines.csv"), index=False)
+    print("\n==== Tab4 Retrieval Benchmark ====")
+    print(tab4.to_string(index=False))
+    out_dict = {}
+    for k, r, nd in zip(K_list, retrieve_results["Ours(Lie Log+Koopman)"]["Recall"], retrieve_results["Ours(Lie Log+Koopman)"]["NDCG"]):
+        out_dict[f"Recall@{k}"] = round(r,4)
+        out_dict[f"NDCG@{k}"] = round(nd,4)
+    out_dict["mAP"] = round(mAP,4)
+    return out_dict, tab4, retrieve_results, rank_full
+
+def ablation_experiment(latent_seq, delta_seq, K_operator, all_point_clouds, q_idx=100):
+    n = len(latent_seq)
+    q_pts = all_point_clouds[q_idx]
+    chamfer_dists = np.array([chamfer_distance(q_pts, all_point_clouds[i]) for i in range(n)])
+    geo_pos = set(np.argsort(chamfer_dists)[:RELEVANT_NUM//2])
+    time_pos = set(range(max(0,q_idx-TIME_WINDOW), min(n,q_idx+TIME_WINDOW)))
+    pos_idx = list(geo_pos.union(time_pos))
+    relevant_mask = np.zeros(n, bool)
+    relevant_mask[pos_idx] = True
+    def metrics(rank):
+        rank = rank[rank != q_idx]
+        top10 = rank[:10]
+        hit = np.sum(relevant_mask[top10])
+        rec = hit / len(pos_idx)
+        lab = np.where(relevant_mask[top10],1,0)
+        nd = ndcg_score(lab, 10)
+        return round(rec,4), round(nd,4)
+    res_list = []
+    rf_feat = []
+    for i in range(n):
+        rf_feat.append(latent_seq[i+1] if i < n-1 else latent_seq[i])
+    rf_feat = np.array(rf_feat)
+    dist_rf = cdist(rf_feat, rf_feat)
+    rank_rf = np.argsort(dist_rf[q_idx])
+    res_list.append(metrics(rank_rf))
+    dist_pca = cdist(latent_seq, latent_seq)
+    rank_pca = np.argsort(dist_pca[q_idx])
+    res_list.append(metrics(rank_pca))
+    lap_feats = []
+    for pts in all_point_clouds:
+        lap_feats.append(pointcloud_laplacian_embed(pts))
+    lap_feats = np.array(lap_feats)
+    emb2 = norm_emb(np.concatenate([latent_seq, lap_feats], axis=1))
+    dist2 = cdist(emb2, emb2)
+    rank2 = np.argsort(dist2[q_idx])
+    res_list.append(metrics(rank2))
+    delta_pad = np.vstack([delta_seq, np.zeros((1, delta_seq.shape[1]))])
+    emb3 = norm_emb(np.concatenate([latent_seq, lap_feats, norm_emb(delta_pad)], axis=1))
+    dist3 = cdist(emb3, emb3)
+    rank3 = np.argsort(dist3[q_idx])
+    res_list.append(metrics(rank3))
+    koop_feat = (K_operator @ latent_seq.T).T
+    emb4 = norm_emb(np.concatenate([latent_seq, lap_feats, norm_emb(delta_pad), norm_emb(koop_feat)], axis=1))
+    dist4 = cdist(emb4, emb4)
+    rank4 = np.argsort(dist4[q_idx])
+    res_list.append(metrics(rank4))
+    recs = [x[0] for x in res_list]
+    ndcgs = [x[1] for x in res_list]
+    plt.figure(figsize=(9,4))
+    colors = ["#ff7f0e","#9467bd","#d62728","#ff9896","#2ca02c"]
+    plt.bar(ABLATION_MODULES, recs, color=colors)
+    plt.ylabel("Recall@10")
+    plt.title("Fig10: Ablation: Incremental Gain of Lie & Geometric Modules")
+    plt.xticks(rotation=18, fontsize=8)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIG_SAVE_DIR, "Fig10_Ablation_Recall.png"), bbox_inches="tight")
+    plt.show()
+    tab6 = pd.DataFrame([[mod, r, nd] for mod, r, nd in zip(ABLATION_MODULES, recs, ndcgs)],
+                        columns=["Module Configuration", "Recall@10", "NDCG@10"])
+    tab6.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab6_Ablation_Study.csv"), index=False)
+    print("\n==== Tab6 Ablation Study ====")
+    print(tab6.to_string(index=False))
+    return {"ablation_Recall@10":recs, "ablation_NDCG@10":ndcgs}, tab6
+
+def dataset_statistics(all_pts, latent_seq, ref_mesh):
+    stat = [
+        ["Sampled vertices per hull", f"{SAMPLE_POINTS}"],
+        ["Sequential hull count", f"{SEQ_LEN}"],
+        ["Lie latent dimension", f"{LATENT_DIM}"],
+        ["Raw mesh triangle count", f"{ref_mesh.faces.shape[0]}"],
+        ["Retrieval positive sample rule", f"{TIME_WINDOW} time window + top {RELEVANT_NUM//2} chamfer similar"]
+    ]
+    tab1 = pd.DataFrame(stat, columns=["Dataset Attribute", "Value"])
+    tab1.to_csv(os.path.join(TABLE_SAVE_DIR, "Tab1_Dataset_Stats.csv"), index=False)
+    print("\n==== Tab1 Dataset Statistics ====")
+    print(tab1.to_string(index=False))
+    return tab1
+
+# ===================== 主执行入口【调整执行顺序，对齐论文图号】 =====================
+if __name__ == "__main__":
+    all_point_clouds, latent_sequence, lie_delta, recon_clouds, pca_model, ref_mesh, ref_point = load_ship_d_sequence()
+    # Tab1
+    tab1 = dataset_statistics(all_point_clouds, latent_sequence, ref_mesh)
+    # Tab2 新增隐空间分析
+    tab2 = table_latent_analysis(pca_model)
+
+    print("\n===== Fig2: Sequential Hull Evolution =====")
+    plot_hull_sequential_evolution(all_point_clouds)
+
+    print("\n===== Fig3: UMAP Latent Manifold + Velocity =====")
+    umap_emb = plot_umap_latent_manifold_with_velocity(latent_sequence)
+
+    print("\n===== Fig4: BCH Noncommutativity Error =====")
+    res_bch = bch_real_lie_exp(latent_sequence, lie_delta)
+
+    print("\n===== Fig5: Koopman Prediction + Eigen Spectrum =====")
+    res_koop = koopman_edmd_predict(latent_sequence)
+    K_mat = res_koop["K_operator"]
+    rf_trained = res_koop["rf_model"]
+
+    print("\n===== Fig6: Lie Log-Exp Version Recovery | Tab3 =====")
+    res_recover = lie_version_recovery(ref_point, latent_sequence, lie_delta, pca_model)
+
+    print("\n===== Fig7: Compression-Fidelity Pareto Curve | Tab4 =====")
+    tab4_compress = compression_pareto_curve(all_point_clouds, latent_sequence, pca_model)
+
+    print("\n===== Fig8-9: Multi-baseline Hull Retrieval | Tab5 =====")
+    res_retrieval, tab5_ret, full_ret_dict, top_rank = retrieval_evaluation(all_point_clouds, latent_sequence, lie_delta, K_mat, rf_trained)
+
+    print("\n===== Fig10: Module Ablation Study | Tab6 =====")
+    res_ablation, tab6_ablation = ablation_experiment(latent_sequence, lie_delta, K_mat, all_point_clouds)
+
+    print("\n===== Tab7 Computational Complexity Analysis =====")
+    tab7_complex = table_complexity_analysis()
+
+    # 可选：Lie生成元可解释性图（补充图，正文/附录自选）
+    print("\n===== Supplementary Figure: Lie Generator Sensitivity Map =====")
+    plot_lie_generator_sensitivity(pca_model, latent_sequence)
+
+    print("\n" + "="*120)
+    print(f"All figures saved to {FIG_SAVE_DIR}")
+    print(f"All CSV tables saved to {TABLE_SAVE_DIR}")

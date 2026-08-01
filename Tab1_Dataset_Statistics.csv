@@ -1,0 +1,7 @@
+Dataset Attribute,Value & Description
+Raw parameter dimension,45D Lie algebra generator vector
+Raw version count,1000
+Interpolated sequential versions,3000
+Sampled vertices per hull,1000
+Triangles of base mesh,228384
+Relevant sample definition for retrieval,Top-200 hulls by Chamfer geometric distance

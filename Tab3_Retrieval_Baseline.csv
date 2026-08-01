@@ -1,0 +1,6 @@
+Method,Recall@1,Recall@10,NDCG@1,NDCG@10,mAP
+Euclidean,0.005,0.04,1.0,0.9888,-
+Hash,0.0,0.01,0.0,0.5013,-
+Laplacian Spectrum,0.005,0.03,1.0,0.9446,-
+Fisher Metric,0.0,0.005,0.0,0.3869,-
+Ours,0.005,0.035,1.0,0.8513,0.6925

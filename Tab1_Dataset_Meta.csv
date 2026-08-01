@@ -1,0 +1,6 @@
+Dataset Attribute,Value
+Full library total independent hull count,30000
+Random selected experimental hull samples,1000
+Raw design parameter dimension,45
+Anomaly detection contamination ablation set,"[0.05, 0.08, 0.12]"
+Weight calculation basis,Sum of absolute Spearman rank correlation per parameter (NaN correlation filled with 0)

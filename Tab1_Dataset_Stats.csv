@@ -1,0 +1,6 @@
+Dataset Attribute,Value
+Sampled vertices per hull,1000
+Sequential hull count,1000
+Lie latent dimension,45
+Raw mesh triangle count,228384
+Retrieval positive sample rule,20 time window + top 100 chamfer similar

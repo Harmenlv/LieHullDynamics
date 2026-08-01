@@ -1,0 +1,7 @@
+Method,Embedding Dim,Recall@1,Recall@10,NDCG@1,NDCG@10,mAP
+Euclidean,45,0.0,0.0224,0.0,0.5267,-
+Hash,45,0.0075,0.0224,1.0,0.7737,-
+Mesh Laplacian Spectrum,45,0.0,0.0299,0.0,0.5819,-
+PCA Shape Latent,45,0.0,0.0224,0.0,0.6871,-
+Random Forest,45,0.0,0.0,0.0,0.0,-
+Ours(Lie Log+Koopman),45,0.0,0.0224,0.0,0.7328,0.1741

@@ -1,0 +1,6 @@
+Module Configuration,Recall@10,NDCG@10
+Random Forest Baseline,0.0224,0.5193
+Raw Mesh PCA Latent,0.0224,0.6871
+Add Mesh Laplacian,0.0224,0.5724
+Add Lie Log Deformation,0.0224,0.672
+Full Model(Lie+Koopman),0.0224,0.7123

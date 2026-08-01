@@ -1,0 +1,4 @@
+Retrieval Method,Recall@1,Recall@10,NDCG@1,NDCG@10,mAP
+Raw 45D Parameter,0.0101,0.101,1.0,1.0,1.0
+Normalized 45D Parameter,0.0,0.0101,0.0,0.3333,0.1567
+PCA20 Compressed Parameter,0.0,0.0101,0.0,0.3155,0.1528

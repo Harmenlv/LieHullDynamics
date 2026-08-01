@@ -1,0 +1,4 @@
+Storage Scheme,Storage KB,Compression Ratio (vs Raw Mesh)
+Raw full triangular mesh,8029.17,1.0
+Delta parameter difference vector,0.35,4.4e-05
+45D Lie algebra generator (Ours),0.35,4.4e-05

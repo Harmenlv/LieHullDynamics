@@ -1,0 +1,5 @@
+Storage Scheme,KB per Sample,Compression Ratio,Avg Chamfer Error
+Raw Point Cloud,23.44,1.0,0.0
+PCA (45D),0.352,0.015,0.02521852922942198
+Random Projection (45D),0.352,0.015,64.5328398077565
+Ours Lie Latent (45D),0.352,15.0,0.025025797870951404

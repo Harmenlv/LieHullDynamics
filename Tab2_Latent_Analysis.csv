@@ -1,0 +1,4 @@
+Representation,Dimension,Explained Variance (%)
+Raw Mesh,3000,100.0
+PCA Latent,45,9.87
+Lie Delta Generator,45,8.47

@@ -1,0 +1,5 @@
+Module,Asymptotic Complexity
+PCA Shape Embedding,$\mathcal{O}(N_{vert}^2 N_{seq})$
+Lie Log Mapping,$\mathcal{O}(N_{seq} \cdot D_{latent})$
+EDMD Koopman Estimation,$\mathcal{O}(D_{latent}^3)$
+Shape Retrieval (Cosine),$\mathcal{O}(N_{seq}^2 \cdot D_{emb})$

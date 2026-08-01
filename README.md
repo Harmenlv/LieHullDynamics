@@ -168,12 +168,17 @@ If you find this repository helpful for your research, please cite:
   url={https://github.com/yourname/LieHullDynamics}
 }
 ```
+## Limitations of the Lie-based deformation representation
+The proposed Lie-algebraic deformation framework has several practical limitations that should be noted.
+The Lie Log–Exp recovery relies on truncated second-order BCH approximation. Reconstruction errors gradually accumulate as the magnitude of hull deformation increases, which restricts its application scenarios under extreme large shape modifications.
+In pure geometric compression tasks, the latent representation learned via Lie deformation generators does not deliver obvious advantages over standard PCA in terms of reconstruction error at identical embedding dimensions. The primary value of the Lie framework lies in sequential shape composition, editable deformation control and physical interpretability, rather than simply improving compression fidelity.
+The current implementation constructs Lie generators from dataset statistics, without embedding prior physical constraints of hydrodynamics or hull structural characteristics. The extracted deformation modes are data-driven and may lack strict physical consistency under out-of-distribution hull designs.
+This method targets static shape sequence representation. It cannot naturally predict long-term design evolution trajectories; combining with dynamic operators such as Koopman may bring extra instability and requires careful regularization.
+For downstream geometric retrieval tasks, the Lie latent feature brings limited improvement to basic retrieval accuracy compared with PCA latent features. Its core strength is the additional capability to interpolate, combine and edit hull shapes via continuous deformation generators, which cannot be achieved by static PCA embedding.
 
 ## License
 MIT License
-```
-```markdown
-# Data Directory
+
 
 ## Acknowledgements
 I am responsible for the full implementation of the code and all experimental analysis presented in this repository.

@@ -163,7 +163,7 @@ If you find this repository helpful for your research, please cite:
 ```bibtex
 @software{LieHullDynamics,
   title={LieHullDynamics: Lie Geometric Learning for Ship Hull Shape Dynamics},
-  author={Haijian Shao},
+  author={Haijian Shao etc},
   year={2026},
   url={https://github.com/yourname/LieHullDynamics}
 }

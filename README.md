@@ -1,144 +1,227 @@
 ```markdown
 # LieHullDynamics
-Lie Geometric Learning for Ship Hull Shape Dynamics Representation
+## Lie-Geometric Representation and Dynamic Evolution Modeling for Ship Hull Shapes
 
-This repository contains the experimental implementation and raw results of a Lie-geometric framework for ship hull shape representation, deformation analysis, geometric retrieval and latent dynamic evolution modeling.
+This repository provides the experimental implementation of a Lie-geometric framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
 
-The proposed pipeline integrates:
-- Lie geometric latent manifold representation
-- PCA-based unified shape embedding
-- Lie logarithmic deformation mapping
-- Koopman-operator latent dynamics prediction
-- Geometry-aware shape retrieval
-- Compression-fidelity quantitative evaluation
-- Comprehensive ablation studies & complexity analysis
+The project investigates how continuous hull shape variations can be represented in a compact latent space by combining geometric representation learning with Lie-based deformation modeling and Koopman dynamic analysis.
 
-## Overview
-Traditional ship hull representation mostly relies on raw Euclidean vertex coordinates, handcrafted geometric descriptors or static dimension reduction.
-However, hull deformation naturally presents nonlinear manifold variations, sequential evolution characteristics and inherent structural geometric correlations.
+The framework includes:
 
-This work constructs a geometry-conscious representation based on Lie latent dynamics. We model continuous hull shape evolution as smooth transformations within a compact low-dimensional latent space.
+- Point-cloud based hull shape representation
+- PCA latent embedding for compact geometric encoding
+- Lie-inspired deformation representation between latent states
+- Koopman operator based latent evolution modeling
+- Geometry-aware retrieval evaluation
+- Compression and reconstruction analysis
+- Ablation studies and computational complexity evaluation
 
-                Input
-                  |
-                  v
-          Raw Hull Mesh Dataset
-                  |
-                  v
-          Point Cloud Sampling
-                  |
-                  v
-        Geometric Feature Extraction
-                  |
-                  v
-          PCA Latent Representation
-                  |
-                  v
-       Lie-Geometric Deformation Encoding
-                  |
-                  v
-          Koopman Dynamic Modeling
-                  |
-        +---------+----------+
-        |                    |
-        v                    v
- Shape Retrieval     Evolution Prediction
 
-## Main Components
-### 1. Hull Shape Representation
-All hull geometries are uniformly converted into point-cloud sequences as network input.
+# Framework Overview
+
+Traditional ship hull representation methods mainly rely on raw Euclidean coordinates, handcrafted descriptors, or static dimensionality reduction methods.
+
+However, hull design processes often involve continuous geometric modifications, where different design states may exhibit nonlinear deformation relationships.
+
+This project explores a geometric dynamic representation framework:
+
+```
+
+```
+             Input
+               |
+               v
+      Raw Hull Mesh Dataset
+               |
+               v
+      Point Cloud Sampling
+               |
+               v
+      Shape PCA Embedding
+               |
+               v
+   Latent Deformation Representation
+               |
+               v
+      Koopman Dynamic Modeling
+               |
+      +--------+---------+
+      |                  |
+      v                  v
+```
+
+Shape Retrieval    Evolution Analysis
+
+```
+
+
+# Main Components
+
+## 1. Hull Shape Representation
+
+All hull geometries are uniformly converted into point clouds and mapped into a compact latent representation.
+
 | Parameter | Value |
 | ---- | ---- |
 | Sampled points per hull mesh | 1000 |
 | Latent embedding dimension | 45 |
-| Sequential evolution samples | 1000 |
+| Sequential latent samples | 1000 |
 
-### 2. Lie Geometric Deformation Modeling
-Deformation between adjacent hull configurations:
+
+## 2. Latent Deformation Representation
+
+The latent deformation between adjacent hull states is represented as:
+
 \[
 \Delta z_t = z_{t+1}-z_t
 \]
-Lie logarithm mapping captures local geometric evolution trajectories on the latent manifold.
 
-### 3. Koopman Dynamic Prediction
-We estimate a linear Koopman operator for latent trajectory propagation:
+The deformation representation aims to characterize continuous geometric transitions between neighboring hull configurations.
+
+The current implementation focuses on data-driven latent deformation analysis and does not impose explicit hydrodynamic or structural constraints.
+
+
+## 3. Koopman Dynamic Modeling
+
+A linear Koopman operator is estimated in the latent space:
+
 \[
 z_{t+1}=Kz_t
 \]
-The linearized dynamics support multi-step prediction, eigen-spectrum analysis and continuous latent trajectory modeling.
 
-## Dataset Notice
-> ⚠️ **ShipD dataset is NOT included in this repository.**
-You need to independently download the ShipD ship hull dataset and place the mesh/point cloud data under the designated data folder before running experiments.
-Please check the official dataset access channel to obtain raw hull mesh data.
+The operator is used for:
 
-## Repository Structure
+- latent trajectory analysis;
+- multi-step evolution prediction;
+- spectral property investigation.
+
+
+# Dataset Notice
+
+> ⚠️ **The ShipD dataset is not included in this repository.**
+
+Users need to independently obtain the ShipD ship hull dataset and place the mesh data in the designated directory.
+
+The repository only contains:
+
+- source code;
+- experimental configuration;
+- visualization scripts;
+- generated analysis templates.
+
+
+# Repository Structure
+
+```
+
 LieHullDynamics/
+
 │
 ├── code/
-│   └── lie_hull_dynamics.py      # ✅ MAIN ENTRY / Main execution script
+│   └── lie_hull_dynamics.py
 │
-├── data/                          # Place downloaded ShipD dataset here
+├── data/
+│   └── ShipD dataset location
 │
-├── exp_tables/                    # Organized experimental CSV outputs
+├── exp_tables/
 │   ├── dataset/
-│   │   └── dataset_stats.csv
 │   ├── latent/
-│   │   ├── latent_analysis.csv
-│   │   └── pca_compression.csv
 │   ├── retrieval/
-│   │   └── retrieval_baseline.csv
 │   ├── ablation/
-│   │   └── ablation.csv
 │   ├── compression/
-│   │   └── compression_ratio.csv
 │   └── complexity/
-│       └── complexity.csv
 │
-├── figures/                       # Generated visualization figures
+├── figures/
 │
 ├── README.md
 └── requirements.txt
-## Experiments Description
-All experimental outputs will be automatically saved into `exp_tables/` after running the main script.
 
-### Dataset Statistics
-Basic metadata of ship hull samples, mesh properties and sampling configurations.
+```
 
-### Latent Space Analysis
-Evaluate PCA embedding quality, latent dimension selection and reconstruction compression efficiency.
 
-### Version Recovery & Reconstruction
-Metrics: Chamfer Distance, Hausdorff Distance, mesh reconstruction error.
+# Experimental Evaluation
 
-### Retrieval Benchmark
-Baseline methods for comparison:
+All experimental results are automatically saved into:
+
+```
+
+exp_tables/
+
+```
+
+and visualization results are stored in:
+
+```
+
+figures/
+
+```
+
+
+## Latent Representation Analysis
+
+Evaluation includes:
+
+- latent dimension analysis;
+- reconstruction fidelity;
+- compression characteristics.
+
+
+## Retrieval Benchmark
+
+Compared methods include:
+
 - Euclidean distance matching
 - Hash embedding
-- Mesh Laplacian Spectrum
-- PCA static latent representation
-- Random Forest descriptor
-- Ours (Lie Log + Koopman Dynamics)
+- Mesh Laplacian spectrum
+- PCA latent representation
+- Random Forest based descriptor
+- Lie-based latent representation
 
-Evaluation metrics: Recall@K, NDCG@K, mAP.
 
-### Compression Analysis
-Quantify storage overhead, compression ratio and reconstruction error trade-off.
+Evaluation metrics:
 
-### Ablation Studies
-Module-wise ablation verification:
-1. PCA latent baseline
-2. Mesh Laplacian geometric feature
-3. Lie deformation representation
+- Recall@K
+- NDCG@K
+- mAP
+
+
+## Compression Evaluation
+
+The compression experiments analyze:
+
+- storage efficiency;
+- reconstruction error;
+- compression-fidelity trade-off.
+
+
+## Ablation Studies
+
+The contribution of each component is evaluated through:
+
+1. PCA latent representation
+2. Geometric feature augmentation
+3. Latent deformation representation
 4. Koopman dynamic modeling
-5. Full Lie+Koopman integrated model
+5. Full integrated framework
 
-### Complexity Analysis
-Asymptotic computation cost analysis for PCA embedding, Lie mapping, Koopman estimation and retrieval inference.
 
-## Requirements
+## Complexity Analysis
+
+Computational complexity is analyzed for:
+
+- PCA embedding;
+- deformation representation;
+- Koopman estimation;
+- retrieval inference.
+
+
+# Requirements
+
 Python >= 3.9
+
 ```
+
 numpy
 scipy
 pandas
@@ -147,53 +230,98 @@ scikit-learn
 trimesh
 umap-learn
 tqdm
-```
+
+````
+
 Install dependencies:
+
 ```bash
 pip install -r requirements.txt
-```
+````
 
-## Run Experiments
-> Precondition: Download ShipD dataset and arrange raw mesh data under `data/` folder.
+# Running Experiments
 
-Execute the main script:
+After downloading the ShipD dataset:
+
 ```bash
 python code/lie_hull_dynamics.py
 ```
-The script will automatically generate:
-- Visualization figures saved in `figures/`
-- All experimental CSV tables stored under `exp_tables/`
-- Retrieval benchmark logs and prediction results
 
-## Citation
-If you find this repository helpful for your research, please cite:
+Generated outputs:
+
+```
+figures/
+    visualization results
+
+exp_tables/
+    quantitative experimental results
+```
+
+# Current Limitations
+
+The current implementation has several limitations.
+
+## 1. Data-driven deformation representation
+
+The deformation representation is constructed from latent-space variations. It does not explicitly incorporate physical constraints from hydrodynamics, structural mechanics, or manufacturing rules.
+
+Therefore, deformation modes should be interpreted as geometric patterns rather than strict physical deformation operators.
+
+## 2. Limited compression advantage
+
+For pure reconstruction-based compression tasks, the Lie-based representation does not necessarily outperform standard PCA at identical latent dimensions.
+
+The main motivation of the framework is not only compression, but also:
+
+* continuous deformation analysis;
+* latent interpolation;
+* geometric evolution interpretation.
+
+## 3. Long-term evolution prediction
+
+Koopman-based evolution modeling provides a linear approximation in latent space.
+
+Long-term prediction may require:
+
+* stronger regularization;
+* physics-informed constraints;
+* nonlinear dynamic operators.
+
+## 4. Retrieval performance
+
+For basic similarity retrieval, Lie latent features may provide limited improvement compared with static PCA features.
+
+The potential advantage lies in:
+
+* deformation-aware retrieval;
+* shape interpolation;
+* editable latent evolution modeling.
+
+# Citation
+
+If you find this repository useful, please cite:
+
 ```bibtex
 @software{LieHullDynamics,
-  title={LieHullDynamics: Lie Geometric Learning for Ship Hull Shape Dynamics},
-  author={Haijian Shao etc},
+  title={LieHullDynamics: Lie-Geometric Representation and Dynamic Evolution Modeling for Ship Hull Shapes},
+  author={Harmenlv etc},
   year={2026},
   url={https://github.com/yourname/LieHullDynamics}
 }
 ```
-## Limitations of the Lie-based deformation representation
-The proposed Lie-algebraic deformation framework has several practical limitations that should be noted.
 
-The Lie Log–Exp recovery relies on truncated second-order BCH approximation. Reconstruction errors gradually accumulate as the magnitude of hull deformation increases, which restricts its application scenarios under extreme large shape modifications.
+# License
 
-In pure geometric compression tasks, the latent representation learned via Lie deformation generators does not deliver obvious advantages over standard PCA in terms of reconstruction error at identical embedding dimensions. The primary value of the Lie framework lies in sequential shape composition, editable deformation control and physical interpretability, rather than simply improving compression fidelity.
-
-The current implementation constructs Lie generators from dataset statistics, without embedding prior physical constraints of hydrodynamics or hull structural characteristics. The extracted deformation modes are data-driven and may lack strict physical consistency under out-of-distribution hull designs.
-
-This method targets static shape sequence representation. It cannot naturally predict long-term design evolution trajectories; combining with dynamic operators such as Koopman may bring extra instability and requires careful regularization.
-
-For downstream geometric retrieval tasks, the Lie latent feature brings limited improvement to basic retrieval accuracy compared with PCA latent features. Its core strength is the additional capability to interpolate, combine and edit hull shapes via continuous deformation generators, which cannot be achieved by static PCA embedding.
-
-## License
 MIT License
 
+# Acknowledgements
 
-## Acknowledgements
-I am responsible for the full implementation of the code and all experimental analysis presented in this repository.
-Place downloaded ShipD ship hull mesh dataset in this folder.
-Raw dataset is not distributed within this repository.
+This repository contains the implementation and experimental analysis developed by the author.
+
+The ShipD ship hull dataset is not redistributed and must be obtained from its original source.
+
+```
+
+
+另外，如果你已经决定把当前论文改成 **SWPCA-CUS 船舶参数压缩论文**，建议不要把这个 README 和那个论文绑定，而是保持 `LieHullDynamics` 作为独立仓库，这样两个工作不会互相削弱。
 ```

@@ -253,7 +253,3 @@ MIT License
 
 # Acknowledgements
 ```
-
-#. 如果希望流程图更加美观，可以替换为mermaid流程图（GitHub原生支持），需要我可以给你mermaid版本。
-
-需要我把上面文字里的框架流程图转换成 **GitHub原生支持的Mermaid流程图** 吗？视觉效果会比纯文本ASCII图高级很多。

@@ -110,17 +110,26 @@ The repository only contains:
 LieHullDynamics/
 ├── code/
 │   └── lie_hull_dynamics.py
+
 ├── data/
 │   └── ShipD dataset location
+
 ├── exp_tables/
 │   ├── dataset/
+
 │   ├── latent/
+
 │   ├── retrieval/
+
 │   ├── ablation/
+
 │   ├── compression/
+
 │   └── complexity/
 ├── figures/
+
 ├── README.md
+
 └── requirements.txt
 ```
 

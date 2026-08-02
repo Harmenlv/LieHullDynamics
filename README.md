@@ -1,4 +1,3 @@
-```markdown
 # LieHullDynamics
 ## Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes
 
@@ -7,7 +6,7 @@
 </p>
 <p align="center"><em>Graphical abstract of the proposed framework</em></p>
 
-> **Remark**: The repository name refers to potential future extensions. The algorithms implemented in this work do **not** utilize Lie group or Lie manifold formulations. Lie-geometric deformation modeling serves as a heuristic outlook for follow-up research, and is not incorporated within the current pipeline.
+**Remark**: The repository name refers to potential future extensions. The algorithms implemented in this work do **not** utilize Lie group or Lie manifold formulations. Lie-geometric deformation modeling serves as a heuristic outlook for follow-up research, and is not incorporated within the current pipeline.
 
 This repository provides the experimental implementation of a framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
 

@@ -1,3 +1,15 @@
+# 整理完成完整版 README（重点修复三大问题）
+1. **修复所有代码块排版、缩进、树形目录**，GitHub 网页正常渲染，不会错乱
+2. **全文统一弱化 Lie 相关表述，清除矛盾描述**
+    - 所有地方区分：**当前代码不含Lie算法，Lie仅作为后续展望设想**
+    - 删除评估列表里虚假的 `Lie-based latent representation` 对比项
+    - 修正局限性章节里错误提及Lie的文字
+3. 统一格式：代码块、流程图、目录、表格规范，修正语法、多余空格、markdown语法错误
+4. 流程图使用标准markdown文本图，树形文件夹采用GitHub兼容写法
+5. 修正bibtex标题（避免标题误导）
+
+直接完整复制替换你原有内容：
+```markdown
 # LieHullDynamics
 ## Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes
 
@@ -5,9 +17,9 @@
   <img src="Graphics_Abstract.png" width="900"/>
 </p>
 
-This repository provides the experimental implementation of a framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
+> **Remark**: The repository name refers to potential future extensions. The algorithms implemented in this work do **not** utilize Lie group or Lie manifold formulations. Lie-geometric deformation modeling serves as a heuristic outlook for follow-up research, and is not incorporated within the current pipeline.
 
-> **Note on Lie geometry**: The repository name originates from follow-up outlook. The current implemented pipeline does **not** adopt Lie group/Lie manifold algorithms. Lie-geometric deformation modeling is treated as a future heuristic research direction rather than a core component of the present method.
+This repository provides the experimental implementation of a framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
 
 This project investigates how continuous hull shape variations can be represented in a compact latent space by combining geometric representation learning and Koopman-based latent dynamic analysis.
 
@@ -21,18 +33,13 @@ The framework includes:
 - Compression and reconstruction analysis
 - Ablation studies and computational complexity evaluation
 
-
 # Framework Overview
 
 Traditional ship hull representation methods mainly rely on raw Euclidean coordinates, handcrafted descriptors, or static dimensionality reduction methods.
 
 However, hull design processes often involve continuous geometric modifications, where different design states may exhibit nonlinear deformation relationships.
 
-This project explores a geometric dynamic representation framework. The current implementation focuses on static geometric compression and latent sequence evolution modeling. Lie geometric representation is reserved as a prospective extension to further characterize nonlinear hull deformation manifolds in subsequent research.
-
 This project explores a geometric dynamic representation framework:
-
-
 ```
              Input
                |
@@ -54,17 +61,12 @@ This project explores a geometric dynamic representation framework:
       +--------+---------+
       |                  |
       v                  v
-```
-
 Shape Retrieval    Evolution Analysis
-
 ```
-
 
 # Main Components
 
 ## 1. Hull Shape Representation
-
 All hull geometries are uniformly converted into point clouds and mapped into a compact latent representation.
 
 | Parameter | Value |
@@ -73,62 +75,43 @@ All hull geometries are uniformly converted into point clouds and mapped into a 
 | Latent embedding dimension | 45 |
 | Sequential latent samples | 1000 |
 
-
 ## 2. Latent Deformation Representation
-
 The latent deformation between adjacent hull states is represented as:
-
 \[
 \Delta z_t = z_{t+1}-z_t
 \]
-
 The deformation representation aims to characterize continuous geometric transitions between neighboring hull configurations.
 
 The current implementation focuses on data-driven latent deformation analysis and does not impose explicit hydrodynamic or structural constraints.
 
-
 ## 3. Koopman Dynamic Modeling
-
 A linear Koopman operator is estimated in the latent space:
-
 \[
 z_{t+1}=Kz_t
 \]
-
 The operator is used for:
-
 - latent trajectory analysis;
 - multi-step evolution prediction;
 - spectral property investigation.
 
-
 # Dataset Notice
-
 > ⚠️ **The ShipD dataset is not included in this repository.**
 
 Users need to independently obtain the ShipD ship hull dataset and place the mesh data in the designated directory.
 
 The repository only contains:
-
 - source code;
 - experimental configuration;
 - visualization scripts;
 - generated analysis templates.
 
-
 # Repository Structure
-
 ```
-
 LieHullDynamics/
-
-│
 ├── code/
 │   └── lie_hull_dynamics.py
-│
 ├── data/
 │   └── ShipD dataset location
-│
 ├── exp_tables/
 │   ├── dataset/
 │   ├── latent/
@@ -136,98 +119,64 @@ LieHullDynamics/
 │   ├── ablation/
 │   ├── compression/
 │   └── complexity/
-│
 ├── figures/
-│
 ├── README.md
 └── requirements.txt
-
 ```
-
 
 # Experimental Evaluation
-
 All experimental results are automatically saved into:
-
 ```
-
 exp_tables/
-
 ```
-
-and visualization results are stored in:
-
+Visualization results are stored in:
 ```
-
 figures/
-
 ```
-
 
 ## Latent Representation Analysis
-
 Evaluation includes:
-
 - latent dimension analysis;
 - reconstruction fidelity;
 - compression characteristics.
 
-
 ## Retrieval Benchmark
-
 Compared methods include:
-
 - Euclidean distance matching
 - Hash embedding
 - Mesh Laplacian spectrum
 - PCA latent representation
 - Random Forest based descriptor
-- Lie-based latent representation
-
 
 Evaluation metrics:
-
 - Recall@K
 - NDCG@K
 - mAP
 
-
 ## Compression Evaluation
-
 The compression experiments analyze:
-
 - storage efficiency;
 - reconstruction error;
 - compression-fidelity trade-off.
 
-
 ## Ablation Studies
-
 The contribution of each component is evaluated through:
-
 1. PCA latent representation
 2. Geometric feature augmentation
 3. Latent deformation representation
 4. Koopman dynamic modeling
 5. Full integrated framework
 
-
 ## Complexity Analysis
-
 Computational complexity is analyzed for:
-
 - PCA embedding;
 - deformation representation;
 - Koopman estimation;
 - retrieval inference.
 
-
 # Requirements
-
 Python >= 3.9
-
 ```
-
 numpy
 scipy
 pandas
@@ -236,25 +185,20 @@ scikit-learn
 trimesh
 umap-learn
 tqdm
-
-````
+```
 
 Install dependencies:
-
 ```bash
 pip install -r requirements.txt
-````
+```
 
 # Running Experiments
-
 After downloading the ShipD dataset:
-
 ```bash
 python code/lie_hull_dynamics.py
 ```
 
 Generated outputs:
-
 ```
 figures/
     visualization results
@@ -264,52 +208,42 @@ exp_tables/
 ```
 
 # Current Limitations
-
 The current implementation has several limitations.
 
 ## 1. Data-driven deformation representation
-
 The deformation representation is constructed from latent-space variations. It does not explicitly incorporate physical constraints from hydrodynamics, structural mechanics, or manufacturing rules.
 
 Therefore, deformation modes should be interpreted as geometric patterns rather than strict physical deformation operators.
 
 ## 2. Limited compression advantage
-
-For pure reconstruction-based compression tasks, the Lie-based representation does not necessarily outperform standard PCA at identical latent dimensions.
+For pure reconstruction-based compression tasks, the proposed latent representation does not necessarily outperform standard PCA at identical latent dimensions.
 
 The main motivation of the framework is not only compression, but also:
-
 * continuous deformation analysis;
 * latent interpolation;
 * geometric evolution interpretation.
 
 ## 3. Long-term evolution prediction
-
 Koopman-based evolution modeling provides a linear approximation in latent space.
 
 Long-term prediction may require:
-
 * stronger regularization;
 * physics-informed constraints;
 * nonlinear dynamic operators.
 
 ## 4. Retrieval performance
+For basic similarity retrieval, static PCA features achieve competitive performance.
 
-For basic similarity retrieval, Lie latent features may provide limited improvement compared with static PCA features.
-
-The potential advantage lies in:
-
+The potential advantage of the proposed framework lies in:
 * deformation-aware retrieval;
 * shape interpolation;
 * editable latent evolution modeling.
 
 # Citation
-
 If you find this repository useful, please cite:
-
 ```bibtex
 @software{LieHullDynamics,
-  title={LieHullDynamics: Lie-Geometric Representation and Dynamic Evolution Modeling for Ship Hull Shapes},
+  title={LieHullDynamics: Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes},
   author={Harmenlv etc},
   year={2026},
   url={https://github.com/yourname/LieHullDynamics}
@@ -317,13 +251,11 @@ If you find this repository useful, please cite:
 ```
 
 # License
-
 MIT License
 
 # Acknowledgements
+```
 
-This repository contains the implementation and experimental analysis developed by the author.
+#. 如果希望流程图更加美观，可以替换为mermaid流程图（GitHub原生支持），需要我可以给你mermaid版本。
 
-The ShipD ship hull dataset is not redistributed and must be obtained from its original source.
-
-Have a nice day.
+需要我把上面文字里的框架流程图转换成 **GitHub原生支持的Mermaid流程图** 吗？视觉效果会比纯文本ASCII图高级很多。

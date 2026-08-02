@@ -1,6 +1,7 @@
-```markdown
 # LieHullDynamics
 ## Lie-Geometric Representation and Dynamic Evolution Modeling for Ship Hull Shapes
+
+![Graphics Abstract](Graphics Abstract.png)
 
 This repository provides the experimental implementation of a Lie-geometric framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
 
@@ -25,7 +26,6 @@ However, hull design processes often involve continuous geometric modifications,
 
 This project explores a geometric dynamic representation framework:
 
-```
 
 ```
              Input

@@ -1,17 +1,21 @@
 # LieHullDynamics
-## Lie-Geometric Representation and Dynamic Evolution Modeling for Ship Hull Shapes
+## Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes
 
-![Graphics Abstract](Graphics Abstract.png)
+<p align="center">
+  <img src="Graphics_Abstract.png" width="900"/>
+</p>
 
-This repository provides the experimental implementation of a Lie-geometric framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
+This repository provides the experimental implementation of a framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
 
-The project investigates how continuous hull shape variations can be represented in a compact latent space by combining geometric representation learning with Lie-based deformation modeling and Koopman dynamic analysis.
+> **Note on Lie geometry**: The repository name originates from follow-up outlook. The current implemented pipeline does **not** adopt Lie group/Lie manifold algorithms. Lie-geometric deformation modeling is treated as a future heuristic research direction rather than a core component of the present method.
+
+This project investigates how continuous hull shape variations can be represented in a compact latent space by combining geometric representation learning and Koopman-based latent dynamic analysis.
 
 The framework includes:
 
 - Point-cloud based hull shape representation
 - PCA latent embedding for compact geometric encoding
-- Lie-inspired deformation representation between latent states
+- Inter-state deformation analysis for hull geometric variants
 - Koopman operator based latent evolution modeling
 - Geometry-aware retrieval evaluation
 - Compression and reconstruction analysis
@@ -23,6 +27,8 @@ The framework includes:
 Traditional ship hull representation methods mainly rely on raw Euclidean coordinates, handcrafted descriptors, or static dimensionality reduction methods.
 
 However, hull design processes often involve continuous geometric modifications, where different design states may exhibit nonlinear deformation relationships.
+
+This project explores a geometric dynamic representation framework. The current implementation focuses on static geometric compression and latent sequence evolution modeling. Lie geometric representation is reserved as a prospective extension to further characterize nonlinear hull deformation manifolds in subsequent research.
 
 This project explores a geometric dynamic representation framework:
 

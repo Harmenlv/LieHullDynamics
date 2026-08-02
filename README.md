@@ -1,14 +1,3 @@
-# 整理完成完整版 README（重点修复三大问题）
-1. **修复所有代码块排版、缩进、树形目录**，GitHub 网页正常渲染，不会错乱
-2. **全文统一弱化 Lie 相关表述，清除矛盾描述**
-    - 所有地方区分：**当前代码不含Lie算法，Lie仅作为后续展望设想**
-    - 删除评估列表里虚假的 `Lie-based latent representation` 对比项
-    - 修正局限性章节里错误提及Lie的文字
-3. 统一格式：代码块、流程图、目录、表格规范，修正语法、多余空格、markdown语法错误
-4. 流程图使用标准markdown文本图，树形文件夹采用GitHub兼容写法
-5. 修正bibtex标题（避免标题误导）
-
-直接完整复制替换你原有内容：
 ```markdown
 # LieHullDynamics
 ## Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes

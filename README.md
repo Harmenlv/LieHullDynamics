@@ -2,7 +2,7 @@
 ## Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes
 
 <p align="center">
-  <img src="./figures/Graphics_Abstract.png" width="900"/>
+  <img src="./figures/GA.png" width="900"/>
 </p>
 <p align="center"><em>Graphical abstract of the proposed framework</em></p>
 

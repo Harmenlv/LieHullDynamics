@@ -2,12 +2,11 @@
 ## Latent Representation and Dynamic Evolution Modeling for Ship Hull Shapes
 
 <p align="center">
-  <img src="./GA.png" width="900"/>
+  <img src="./Fig00_hull_schematic_fallback.png" width="900"/>
 </p>
-<p align="center"><em>Graphical abstract of the proposed framework</em></p>
+<p align="center"><em>Schematic representation of the independent-hull representation used in this study</em></p>
 
 **Remark**: The repository name refers to potential future extensions. The algorithms implemented in this work do **not** utilize Lie group or Lie manifold formulations. Lie-geometric deformation modeling serves as a heuristic outlook for follow-up research, and is not incorporated within the current pipeline.
-
 This repository provides the experimental implementation of a framework for ship hull shape representation, deformation analysis, geometric retrieval, and latent dynamic evolution modeling.
 
 This project investigates how continuous hull shape variations can be represented in a compact latent space by combining geometric representation learning and Koopman-based latent dynamic analysis.

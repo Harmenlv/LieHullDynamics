@@ -1,0 +1,16 @@
+﻿dataset,n_samples,method,parameter,estimate
+DELFT_Series,47,Local MLE,k=5,3.5497487738791165
+DELFT_Series,47,Local MLE,k=7,3.49079161018435
+DELFT_Series,47,Local MLE,k=10,3.1965245580276576
+DELFT_Series,47,Local MLE,k=12,3.1628244060673794
+DELFT_Series,47,Local MLE,k=15,3.2317447328585676
+DELFT_Series,47,Local MLE,k=20,3.0744592484104207
+DELFT_Series,47,Two-NN,k=2,2.7845358938476847
+Il_Moro_di_Venezia'_Series,14,Local MLE,k=5,4.868592095456471
+Il_Moro_di_Venezia'_Series,14,Local MLE,k=7,3.642166849233331
+Il_Moro_di_Venezia'_Series,14,Local MLE,k=10,2.8153561216929743
+Il_Moro_di_Venezia'_Series,14,Local MLE,k=12,2.1267102257532535
+Il_Moro_di_Venezia'_Series,14,Two-NN,k=2,3.188810183398239
+US_Series,9,Local MLE,k=5,2.590584152461181
+US_Series,9,Local MLE,k=7,1.9808076014364555
+US_Series,9,Two-NN,k=2,2.212272035411598

@@ -1,0 +1,17 @@
+﻿No,Descriptor,Physical_interpretation
+1,Cp,Prismatic coefficient
+2,Cm,Midship coefficient
+3,Cb,Block coefficient
+4,Cw,Waterplane coefficient
+5,Lwl/Bwl,Length-to-beam ratio
+6,Bwl/Tc,Beam-to-draft ratio
+7,Lwl/Tc,Length-to-draft ratio
+8,Lwl/Vol^(1/3),Length-to-volume scale ratio
+9,Lcb/Lwl,Longitudinal center-of-buoyancy ratio
+10,Lcf/Lwl,Longitudinal center-of-flotation ratio
+11,Lcb/Lcf,Relative longitudinal-center ratio
+12,Sc/Vol^(2/3),Wetted-surface area scaling
+13,Aw/Vol^(2/3),Waterplane-area scaling
+14,Sc/Aw,Wetted-surface to waterplane-area ratio
+15,Sc/Ax,Wetted-surface to reference-area ratio
+16,Ax/Aw,Reference-area to waterplane-area ratio

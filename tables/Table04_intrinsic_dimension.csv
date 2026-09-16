@@ -1,0 +1,9 @@
+﻿Estimator,Parameter,Estimate,N_hulls,Nominal_dimension
+Local MLE,k=5,4.135913347039397,70,16
+Local MLE,k=7,3.846167493766444,70,16
+Local MLE,k=10,3.5506768920349825,70,16
+Local MLE,k=12,3.4938358994393477,70,16
+Local MLE,k=15,3.355939509485293,70,16
+Local MLE,k=20,3.4670816400623026,70,16
+Two-NN,k=2,2.7905988438458187,70,16
+Correlation-dimension proxy,pairwise diagnostic,2.348131182864093,70,16

@@ -10,9 +10,6 @@
   Schematic representation of the independent-hull representation used in this study
   </em>
 </p>
-
----
-
 <p align="center">
   <em>
   Hierarchical structure of the experimental sailboat-hull population and its
@@ -20,12 +17,7 @@
   </em>
 </p>
 
-<p align="center">
-  <em>
-  Hierarchical structure of the experimental sailboat-hull population and its
-  independent-hull representation
-  </em>
-</p>
+
 
 ---
 

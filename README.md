@@ -2,7 +2,7 @@
 ## Intrinsic Geometry and Nonlinear Manifold Representation of Experimental Sailboat Hulls
 
 <p align="center">
-  <img src="./Fig01_hull_population_structure.png" width="900"/>
+  <img src="Fig01_hull_population_structure.png" width="900"/>
 </p>
 
 <p align="center">

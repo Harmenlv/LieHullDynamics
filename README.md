@@ -2,8 +2,16 @@
 ## Intrinsic Geometry and Nonlinear Manifold Representation of Experimental Sailboat Hulls
 
 <p align="center">
-  <img src="./Fig01_hull_population_structure.png" width="900"/>
+  <img src="./Fig00_hull_schematic_fallback.png" width="900"/>
 </p>
+
+<p align="center">
+  <em>
+  Schematic representation of the independent-hull representation used in this study
+  </em>
+</p>
+
+---
 
 <p align="center">
   <em>
